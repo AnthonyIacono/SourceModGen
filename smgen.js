@@ -256,77 +256,99 @@ $(document).ready(function() {
     var initialStructure = {
         name: 'War3Race',
         functionPrefix: 'War3_',
-        paramPrefix: 'p',
-        variablePrefix: 't',
+        paramPrefix: 'p_',
+        variablePrefix: 's_',
         indentUseSpaces: true,
         indentSpaceCount: 4,
         threadedQueries: true,
         fields: [{
             name: 'ID',
             type: 'int',
-            maxLength: ''
+            maxLength: '',
+            doNotSave: false,
+            doNotLoad: false
         }, {
             name: 'ShortName',
             type: 'string',
-            maxLength: '32'
+            maxLength: '32',
+            doNotSave: false,
+            doNotLoad: false
         }, {
             name: 'Description',
             type: 'string',
-            maxLength: '512'
+            maxLength: '512',
+            doNotSave: false,
+            doNotLoad: false
         }]
     };
 
     var vipPlayerStructure = {
         name: 'VIPPlayer',
         functionPrefix: 'PTV_',
-        paramPrefix: 'p',
-        variablePrefix: 't',
+        paramPrefix: 'p_',
+        variablePrefix: 's_',
         indentUseSpaces: true,
         indentSpaceCount: 4,
         threadedQueries: true,
         fields: [{
             name: 'SteamID',
             type: 'string',
-            maxLength: '64'
+            maxLength: '64',
+            doNotSave: false,
+            doNotLoad: false
         }, {
             name: 'Client',
             type: 'int',
-            maxLength: ''
+            maxLength: '',
+            doNotSave: true,
+            doNotLoad: true
         }, {
             name: 'WasVIPLastRound',
             type: 'bool',
-            maxLength: ''
+            maxLength: '',
+            doNotSave: true,
+            doNotLoad: true
         }, {
             name: 'IsVIP',
             type: 'bool',
-            maxLength: ''
+            maxLength: '',
+            doNotSave: true,
+            doNotLoad: true
         }, {
             name: 'Points',
             type: 'int',
-            maxLength: ''
+            maxLength: '',
+            doNotSave: false,
+            doNotLoad: false
         }]
     };
 
     var vipRescueZoneStructure = {
         name: 'RescueZone',
         functionPrefix: 'PTV_',
-        paramPrefix: 'p',
-        variablePrefix: 't',
+        paramPrefix: 'p_',
+        variablePrefix: 's_',
         indentUseSpaces: true,
         indentSpaceCount: 4,
         threadedQueries: true,
         fields: [{
             name: 'Name',
             type: 'string',
-            maxLength: '128'
+            maxLength: '128',
+            doNotSave: false,
+            doNotLoad: false
         }, {
             name: 'Position',
             type: 'vector',
-            maxLength: ''
+            maxLength: '',
+            doNotSave: false,
+            doNotLoad: false
         }, {
             name: 'Radius',
             type: 'float',
-            maxLength: ''
+            maxLength: '',
+            doNotSave: false,
+            doNotLoad: false
         }]
     };
 
@@ -395,8 +417,14 @@ $(document).ready(function() {
 
             var upColumn = $('<td><a href="#" class="moveUpFieldLink">Move Up</a></td>');
             var downColumn = $('<td><a href="#" class="moveDownFieldLink">Move Down</a></td>');
+            
+            var doNotSaveCheckedStr = fieldInfo['doNotSave'] ? ' checked="checked" ' : '';
+            var doNotSaveColumn = $('<td><input type="checkbox" name="field_do_not_save[]" ' + doNotSaveCheckedStr + ' value="1" /></td>');
 
-            fieldRow.append(nameColumn, typeColumn, maxlenColumn, removeColumn, upColumn, downColumn);
+            var doNotLoadCheckedStr = fieldInfo['doNotLoad'] ? ' checked="checked" ' : '';
+            var doNotLoadColumn = $('<td><input type="checkbox" name="field_do_not_load[]" ' + doNotLoadCheckedStr + 'value="1" /></td>');
+
+            fieldRow.append(nameColumn, typeColumn, maxlenColumn, doNotSaveColumn, doNotLoadColumn, removeColumn, upColumn, downColumn);
 
             fieldList.append(fieldRow);
         });
@@ -450,7 +478,10 @@ $(document).ready(function() {
         var upColumn = $('<td><a href="#" class="moveUpFieldLink">Move Up</a></td>');
         var downColumn = $('<td><a href="#" class="moveDownFieldLink">Move Down</a></td>');
 
-        fieldRow.append(nameColumn, typeColumn, maxlenColumn, removeColumn, upColumn, downColumn);
+        var doNotSaveColumn = $('<td><input type="checkbox" name="field_do_not_save[]" value="1" /></td>');
+        var doNotLoadColumn = $('<td><input type="checkbox" name="field_do_not_load[]" value="1" /></td>');
+
+        fieldRow.append(nameColumn, typeColumn, maxlenColumn, doNotSaveColumn, doNotLoadColumn, removeColumn, upColumn, downColumn);
 
         fieldList.append(fieldRow);
 
@@ -513,7 +544,7 @@ $(document).ready(function() {
             var fieldMaxLength = parseInt($.trim(tr.find(':input[name="field_maxlen[]"]').val()), 10);
             fieldMaxLength = isNaN(fieldMaxLength) ? 0 : fieldMaxLength;
 
-            if(['string', 'array'].indexOf(fieldType) != -1 && fieldMaxLength <= 0) {
+            if(['string', 'array', 'strings'].indexOf(fieldType) != -1 && fieldMaxLength <= 0) {
                 alert("Please enter a max length.");
                 failedValidation = true;
                 tr.find(':input[name="field_maxlen[]"]').focus();
@@ -595,6 +626,10 @@ $(document).ready(function() {
             return indentChar.repeat(count);
         };
 
+        var dblQuotify = function(text) {
+            return "\"" + text.replace(/"/g, "\\\"") + "\"";
+        };
+
         // Start with the function for creating a single object
         outputText += "stock Handle:" + fnPrefix + "Create" + structName + "(";
 
@@ -605,6 +640,7 @@ $(document).ready(function() {
             var fieldType = tr.find(':input[name="field_type[]"]').val();
             var fieldName = tr.find(':input[name="field_name[]"]').val();
             var fieldMaxLength = parseInt($.trim(tr.find(':input[name="field_maxlen[]"]').val()), 10);
+            fieldMaxLength = isNaN(fieldMaxLength) ? 0 : fieldMaxLength;
 
             if(!isFirst) {
                 outputText += ', ';
@@ -685,7 +721,7 @@ $(document).ready(function() {
 
         outputText += "}\n\n";
 
-        // Start with the function for creating a single object
+        // Function for copying a single object
         outputText += "stock Handle:" + fnPrefix + "Copy" + structName + "(Handle:" + paramPrefix + structName + ") {\n";
 
         outputText += makeIndents(1) + "new Handle:" + varPrefix + structName + " = CreateArray(" + structSizeInCells + ");\n\n";
@@ -714,6 +750,136 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "decl any:" + varPrefix + fieldName + "Output[" + fieldMaxLength + "];\n";
                 outputText += makeIndents(1) + "GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n";
                 outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n"
+            }
+        });
+
+        outputText += "\n" + makeIndents(1) + "return " + varPrefix + structName + ";\n";
+
+        outputText += "}\n\n";
+
+        // Function for reading a single structure from KV
+        outputText += "stock Handle:" + fnPrefix + "Read" + structName + "FromKV(Handle:" + paramPrefix + structName + "KV) {\n";
+
+        outputText += makeIndents(1) + "new Handle:" + varPrefix + structName + " = CreateArray(" + structSizeInCells + ");\n\n";
+
+        fieldList.find('tr').each(function(fieldIndex) {
+            var tr = $(this);
+            var fieldType = tr.find(':input[name="field_type[]"]').val();
+            var fieldName = tr.find(':input[name="field_name[]"]').val();
+            var fieldMaxLength = parseInt($.trim(tr.find(':input[name="field_maxlen[]"]').val()), 10);
+            fieldMaxLength = isNaN(fieldMaxLength) ? 0 : fieldMaxLength;
+
+            var fieldDoNotLoad = tr.find(':input[name="field_do_not_load[]"]').is(':checked');
+            var constFieldValue = dblQuotify(fieldName);
+
+            if(fieldType == 'int') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", 0);\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constFieldValue + "));\n";
+                }
+            }
+            else if(fieldType == 'float') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", 0.0);\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetFloat(" + paramPrefix + structName + "KV, " + constFieldValue + "));\n";
+                }
+            }
+            else if(fieldType == 'string') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayString(" + varPrefix + structName + ", \"\");\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "new String:" + varPrefix + fieldName + "Output[" + fieldMaxLength + "];\n";
+                    outputText += makeIndents(1) + "KvGetString(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n";
+                    outputText += makeIndents(1) + "PushArrayString(" + varPrefix + structName + ", " + varPrefix + fieldName + "Output);\n";
+                }
+            }
+            else if(fieldType == 'char') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", 0);\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "new String:" + varPrefix + fieldName + "Output[2];\n";
+                    outputText += makeIndents(1) + "KvGetString(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Output, 2);\n";
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", " + varPrefix + fieldName + "Output[0]);\n";
+                }
+            }
+            else if(fieldType == 'vector') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", {0.0, 0.0, 0.0}, 3);\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Value[3];\n";
+                    outputText += makeIndents(1) + "KvGetVector(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Value);\n";
+                    outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Value, 3);\n";
+                }
+            }
+            else if(fieldType == 'handle') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", INVALID_HANDLE);\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constFieldValue + "));\n";
+                }
+            }
+            else if(fieldType == 'array') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "new any:" + varPrefix + fieldName + "Value[" + fieldMaxLength + "];\n";
+                    outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Value, " + fieldMaxLength + ");\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "new any:" + varPrefix + fieldName + "Value[" + fieldMaxLength + "];\n";
+
+                    outputText += makeIndents(1) + "new KvDataTypes:" + varPrefix + fieldName + "CurrentType;\n";
+
+                    for(var arrIndex = 0; arrIndex < fieldMaxLength; arrIndex++) {
+                        var arrKeyStr = dblQuotify(fieldName + "_" + arrIndex);
+
+                        outputText += "\n" + makeIndents(1) + varPrefix + fieldName + "CurrentType = KvGetDataType(" + paramPrefix + structName + "KV, " + arrKeyStr + ");\n\n";
+
+                        outputText += makeIndents(1) + "if(" + varPrefix + fieldName + "CurrentType == KvData_None || " + varPrefix + fieldName + "CurrentType == KvData_String || " + varPrefix + fieldName + "CurrentType == KvData_WString || " + varPrefix + fieldName + "CurrentType == KvData_UInt64 || " + varPrefix + fieldName + "CurrentType == KvData_Color) {\n";
+                        outputText += makeIndents(2) + varPrefix + fieldName + "Value[" + arrIndex + "] = 0;\n";
+                        outputText += makeIndents(1) + "}\n";
+                        outputText += makeIndents(1) + "else if(" + varPrefix + fieldName + "CurrentType == KvData_Int || " + varPrefix + fieldName + "CurrentType == KvData_Ptr) {\n";
+                        outputText += makeIndents(2) + varPrefix + fieldName + "Value[" + arrIndex + "] = KvGetNum(" + paramPrefix + structName + "KV, " + arrKeyStr + ");\n";
+                        outputText += makeIndents(1) + "}\n";
+                        outputText += makeIndents(1) + "else if(" + varPrefix + fieldName + "CurrentType == KvData_Float) {\n";
+                        outputText += makeIndents(2) + varPrefix + fieldName + "Value[" + arrIndex + "] = KvGetFloat(" + paramPrefix + structName + "KV, " + arrKeyStr + ");\n";
+                        outputText += makeIndents(1) + "}\n";
+                    }
+
+                    outputText += "\n" + makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Value, " + fieldMaxLength + ");\n";
+                }
+            }
+            else if(fieldType == 'bool') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", false);\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ") ? true : false);\n";
+                }
+            }
+            else if(fieldType == 'vectors') {
+
+            }
+            else if(fieldType == 'strings') {
+
+            }
+            else if(fieldType == 'ints') {
+
+            }
+            else if(fieldType == 'floats') {
+
+            }
+            else if(fieldType == 'handles') {
+
+            }
+            else if(fieldType == 'bools') {
+
             }
         });
 
