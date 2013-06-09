@@ -1,0 +1,45 @@
+<html>
+    <head>
+        <title>SourceModGen by PimpinJuice</title>
+        <link rel="stylesheet" href="smgen.css" />
+        <script src="jquery.js"></script>
+        <script src="ZeroClipboard.js"></script>
+        <script src="smgen.js"></script>
+    </head>
+    <body>
+        <h2>SourceModGen</h2>
+        <p>Please describe your structure and ADT-functions will be generated.</p>
+        <p>Examples: <a href="#" class="vipPlayerExampleLink">VIP Player</a>, <a href="#" class="vipRescueZoneExampleLink">VIP Rescue Zone</a></p>
+        <form id="gen">
+            <h4>Basic Info</h4>
+            <label>Structure Name: <input name="structure_name" type="text" value="" /></label>
+            <h4>Fields</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Type</th>
+                        <th>Max Length</th>
+                        <th>Remove</th>
+                        <th>Move Up</th>
+                        <th>Move Down</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+            <a href="#" class="addFieldLink">Add Field To Bottom</a>
+            <h4>Generator Options</h4>
+            <label>Function Prefix [naming]: <input name="function_prefix" value="" /></label>
+            <label>Function Parameter Prefix [naming]: <input name="function_param_prefix" value="" /></label>
+            <label>Variable Prefix [naming]: <input name="function_var_prefix" value="" /></label>
+            <label>Spaces Instead Of Tabs [formatting]: <input name="generate_use_spaces" type="checkbox" value="1" /></label>
+            <label>Space Count for Tab (if above enabled) [formatting]: <input name="generate_space_count" type="text" value="" /></label>
+            <input type="submit" value="Generate Functions" />
+        </form>
+
+        <hr />
+        <span id="outputLabel">Output <a href="#" id="copyClipLink" data-clipboard-target="output">[copy to clipboard]</a>:</span>
+        <textarea id="output" readonly="readonly"></textarea>
+    </body>
+</html>
