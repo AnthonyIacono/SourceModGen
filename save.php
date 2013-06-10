@@ -19,6 +19,11 @@ function MakeGuid() {
     return $tl . '-' . $tm . '-' . $th . $cs . '-' . $clock_seq_low . '-' . $node;
 }
 
+foreach($_POST['fields'] as &$field) {
+    $field['doNotSave'] = $field['doNotSave'] == 'true' ? true : false;
+    $field['doNotLoad'] = $field['doNotLoad'] == 'true' ? true : false;
+}
+
 $dataEncoded = json_encode($_POST);
 $guid = MakeGuid();
 
