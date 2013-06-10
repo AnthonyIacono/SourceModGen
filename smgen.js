@@ -232,7 +232,7 @@ $(document).ready(function() {
         text: 'Handle'
     }, {
         key: 'array',
-        text: 'Array'
+        text: 'Array [no kv write :( sorry]'
     }, {
         key: 'vectors',
         text: 'Vectors [adt]'
@@ -656,7 +656,7 @@ $(document).ready(function() {
                 outputText += 'const String:' + paramPrefix + fieldName + '[]';
             }
             else if(fieldType == 'char') {
-                outputText += 'const String:' + paramPrefix + fieldName + '';
+                outputText += 'const ' + paramPrefix + fieldName + '';
             }
             else if(fieldType == 'vector') {
                 outputText += 'const Float:' + paramPrefix + fieldName + '[3]';
@@ -805,9 +805,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", 0);\n";
                 }
                 else {
-                    outputText += makeIndents(1) + "new String:" + varPrefix + fieldName + "Output[2];\n";
-                    outputText += makeIndents(1) + "KvGetString(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Output, 2);\n";
-                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", " + varPrefix + fieldName + "Output[0]);\n";
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constFieldValue + "));\n";
                 }
             }
             else if(fieldType == 'vector') {
@@ -999,6 +997,148 @@ $(document).ready(function() {
 
         outputText += "}\n\n";
 
+        // Function for writing a single structure to KV
+        outputText += "stock Handle:" + fnPrefix + "Write" + structName + "ToKV(Handle:" + paramPrefix + structName + ", Handle:" + paramPrefix + structName + "KV) {\n";
+
+        fieldList.find('tr').each(function(fieldIndex) {
+            var tr = $(this);
+            var fieldType = tr.find(':input[name="field_type[]"]').val();
+            var fieldName = tr.find(':input[name="field_name[]"]').val();
+            var fieldMaxLength = parseInt($.trim(tr.find(':input[name="field_maxlen[]"]').val()), 10);
+            fieldMaxLength = isNaN(fieldMaxLength) ? 0 : fieldMaxLength;
+
+            var fieldDoNotSave = tr.find(':input[name="field_do_not_save[]"]').is(':checked');
+            var constFieldValue = dblQuotify(fieldName);
+            var constFieldCountValue = dblQuotify(fieldName + "_Count");
+
+            var fieldTempKeySize = fieldName.length + 12;
+
+            if(fieldDoNotSave) {
+                return;
+            }
+
+            if(fieldType == 'int') {
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
+            }
+            else if(fieldType == 'float') {
+                outputText += makeIndents(1) + "KvSetFloat(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
+            }
+            else if(fieldType == 'string') {
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Temp[" + fieldMaxLength + "];\n";
+                outputText += makeIndents(1) + "GetArrayString(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Temp, " + fieldMaxLength + ");\n";
+                outputText += makeIndents(1) + "KvSetString(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Temp);\n";
+            }
+            else if(fieldType == 'char') {
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
+            }
+            else if(fieldType == 'vector') {
+                outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Temp[3];\n";
+                outputText += makeIndents(1) + "GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Temp, 3);\n";
+                outputText += makeIndents(1) + "KvSetVector(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Temp);\n";
+            }
+            else if(fieldType == 'handle') {
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
+            }
+            else if(fieldType == 'array') {
+                // No KV writing :( Can't check type at runtime. Sowwy. Maybe a reason to implement RTTI later SM devs :D
+            }
+            else if(fieldType == 'bool') {
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ") ? 1 : 0);\n";
+            }
+            else if(fieldType == 'vectors') {
+                outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ");\n";
+                outputText += makeIndents(1) + "new " + varPrefix + fieldName + "Count = GetArraySize(" + varPrefix + fieldName + "List);\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ", " + varPrefix + fieldName + "Count);\n\n";
+
+                outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Temp[3];\n\n";
+
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+
+                outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "GetArrayArray(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex, " + varPrefix + fieldName + "Temp, 3);\n";
+                outputText += makeIndents(2) + "KvSetVector(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n";
+                outputText += makeIndents(1) + "}\n";
+            }
+            else if(fieldType == 'strings') {
+                outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ");\n";
+                outputText += makeIndents(1) + "new " + varPrefix + fieldName + "Count = GetArraySize(" + varPrefix + fieldName + "List);\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ", " + varPrefix + fieldName + "Count);\n\n";
+
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Temp[" + fieldMaxLength + "];\n\n";
+
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+
+                outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "GetArrayString(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex, " + varPrefix + fieldName + "Temp, " + fieldMaxLength + ");\n";
+                outputText += makeIndents(2) + "KvSetString(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n";
+                outputText += makeIndents(1) + "}\n";
+            }
+            else if(fieldType == 'ints') {
+                outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ");\n";
+                outputText += makeIndents(1) + "new " + varPrefix + fieldName + "Count = GetArraySize(" + varPrefix + fieldName + "List);\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ", " + varPrefix + fieldName + "Count);\n\n";
+
+                outputText += makeIndents(1) + "decl " + varPrefix + fieldName + "Temp;\n\n";
+
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+
+                outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + varPrefix + fieldName + "Temp = GetArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "KvSetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n";
+                outputText += makeIndents(1) + "}\n";
+            }
+            else if(fieldType == 'floats') {
+                outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ");\n";
+                outputText += makeIndents(1) + "new " + varPrefix + fieldName + "Count = GetArraySize(" + varPrefix + fieldName + "List);\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ", " + varPrefix + fieldName + "Count);\n\n";
+
+                outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Temp;\n\n";
+
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+
+                outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + varPrefix + fieldName + "Temp = GetArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "KvSetFloat(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n";
+                outputText += makeIndents(1) + "}\n";
+            }
+            else if(fieldType == 'handles') {
+                outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ");\n";
+                outputText += makeIndents(1) + "new " + varPrefix + fieldName + "Count = GetArraySize(" + varPrefix + fieldName + "List);\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ", " + varPrefix + fieldName + "Count);\n\n";
+
+                outputText += makeIndents(1) + "decl Handle:" + varPrefix + fieldName + "Temp;\n\n";
+
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+
+                outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + varPrefix + fieldName + "Temp = GetArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "KvSetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, _:" + varPrefix + fieldName + "Temp);\n";
+                outputText += makeIndents(1) + "}\n";
+            }
+            else if(fieldType == 'bools') {
+                outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ");\n";
+                outputText += makeIndents(1) + "new " + varPrefix + fieldName + "Count = GetArraySize(" + varPrefix + fieldName + "List);\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ", " + varPrefix + fieldName + "Count);\n\n";
+
+                outputText += makeIndents(1) + "decl bool:" + varPrefix + fieldName + "Temp;\n\n";
+
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+
+                outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + varPrefix + fieldName + "Temp = GetArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex) ? true : false;\n";
+                outputText += makeIndents(2) + "KvSetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp ? 1 : 0);\n";
+                outputText += makeIndents(1) + "}\n";
+            }
+        });
+
+        outputText += "}\n\n";
+
         // Field based function generation
         fieldList.find('tr').each(function(fieldIndex) {
             var tr = $(this);
@@ -1147,13 +1287,13 @@ $(document).ready(function() {
                 outputText += "}\n\n";
             }
             else if(fieldType == 'char') {
-                outputText += "stock String:" + fnPrefix + "Get" + structName + fieldName + "(Handle:" + paramPrefix + structName + ") {\n";
+                outputText += "stock " + fnPrefix + "Get" + structName + fieldName + "(Handle:" + paramPrefix + structName + ") {\n";
 
                 outputText += makeIndents(1) + "return GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ");\n";
 
                 outputText += "}\n\n";
 
-                outputText += "stock " + fnPrefix + "Set" + structName + fieldName + "(Handle:" + paramPrefix + structName + ", String:" + paramPrefix + fieldName + "Value) {\n";
+                outputText += "stock " + fnPrefix + "Set" + structName + fieldName + "(Handle:" + paramPrefix + structName + ", " + paramPrefix + fieldName + "Value) {\n";
 
                 outputText += makeIndents(1) + "SetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ", " + paramPrefix + fieldName + "Value);\n";
 
