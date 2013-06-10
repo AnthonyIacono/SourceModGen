@@ -19,7 +19,7 @@ function MakeGuid() {
     return $tl . '-' . $tm . '-' . $th . $cs . '-' . $clock_seq_low . '-' . $node;
 }
 
-$_POST['generate_use_spaces'] = $_POST['generate_use_spaces'] == 'true' ? true : false;
+$_POST['indentUseSpaces'] = $_POST['indentUseSpaces'] == 'true' ? true : false;
 
 foreach($_POST['fields'] as &$field) {
     $field['doNotSave'] = $field['doNotSave'] == 'true' ? true : false;
