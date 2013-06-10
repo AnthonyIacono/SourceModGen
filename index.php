@@ -1,3 +1,7 @@
+<?php
+mysql_connect('localhost', 'root', '');
+mysql_select_db('smgen');
+?>
 <html>
     <head>
         <title>SourceModGen by PimpinJuice</title>
@@ -5,6 +9,30 @@
         <script src="jquery.js"></script>
         <script src="ZeroClipboard.js"></script>
         <script src="smgen.js"></script>
+        <script type="text/javascript">
+            $(document).ready(function() {
+                window.defaultSMGen();
+
+                <?php
+                if(!empty($_GET['id'])) {
+                    $guid = $_GET['id'];
+
+                    $guidEscaped = mysql_real_escape_string($guid);
+
+                    $result = mysql_query("SELECT `data` FROM `smgen` WHERE `guid` = '{$guidEscaped}'");
+
+                    $row = mysql_fetch_assoc($result);
+
+                    if(!empty($row)) {
+                        $jsonData = $row['data'];
+                        ?>
+                        window.loadSMGen(<?= $jsonData ?>);
+                        <?php
+                    }
+                }
+                ?>
+            });
+        </script>
     </head>
     <body>
         <h2>SourceModGen v1.1 by PimpinJuice</h2>
@@ -37,7 +65,7 @@
             <label>Variable Prefix [naming]: <input name="function_var_prefix" value="" /></label>
             <label>Spaces Instead Of Tabs [formatting]: <input name="generate_use_spaces" type="checkbox" value="1" /></label>
             <label>Space Count for Tab (if above enabled) [formatting]: <input name="generate_space_count" type="text" value="" /></label>
-            <input type="submit" value="Generate Functions" />
+            <input type="submit" value="Generate Functions" />&nbsp;<input id="saveBtn" type="button" value="Save (link a friend)" />
         </form>
 
         <hr />

@@ -260,7 +260,6 @@ $(document).ready(function() {
         variablePrefix: 's_',
         indentUseSpaces: true,
         indentSpaceCount: 4,
-        threadedQueries: true,
         fields: [{
             name: 'ID',
             type: 'int',
@@ -289,7 +288,6 @@ $(document).ready(function() {
         variablePrefix: 's_',
         indentUseSpaces: true,
         indentSpaceCount: 4,
-        threadedQueries: true,
         fields: [{
             name: 'SteamID',
             type: 'string',
@@ -330,7 +328,6 @@ $(document).ready(function() {
         variablePrefix: 's_',
         indentUseSpaces: true,
         indentSpaceCount: 4,
-        threadedQueries: true,
         fields: [{
             name: 'Name',
             type: 'string',
@@ -432,7 +429,13 @@ $(document).ready(function() {
         fixUpDownLinks();
     };
 
-    loadStructure(initialStructure);
+    window.defaultSMGen = function() {
+        loadStructure(initialStructure);
+    };
+
+    window.loadSMGen = function(struct) {
+        loadStructure(struct);
+    };
 
     $('body').delegate('.removeFieldLink', 'click', function() {
         var tr = $(this).parents('tr');
@@ -1546,6 +1549,40 @@ $(document).ready(function() {
         });
 
         $('#output').text(outputText);
+
+        return false;
+    });
+
+    $('#saveBtn').click(function() {
+        var form = $(this).parents('form');
+
+        var fieldsArray = [];
+
+        fieldList.find('tr').each(function() {
+            var tr = $(this);
+
+            fieldsArray.push({
+                name: tr.find(':input[name="field_name[]"]').val(),
+                type: tr.find(':input[name="field_type[]"]').val(),
+                maxLength: tr.find(':input[name="field_maxlen[]"]').val(),
+                doNotSave: tr.find(':input[name="field_do_not_save[]"]').is(':checked'),
+                doNotLoad: tr.find(':input[name="field_do_not_load[]"]').is(':checked')
+            });
+        });
+
+        var data = {
+            'name': $(':input[name="structure_name"]').val(),
+            'functionPrefix': $(':input[name="function_prefix"]').val(),
+            'paramPrefix': $(':input[name="function_param_prefix"]').val(),
+            'variablePrefix': $(':input[name="function_var_prefix"]').val(),
+            'indentUseSpaces': $(':input[name="generate_use_spaces"]').is(':checked'),
+            'indentSpaceCount': $(':input[name="generate_space_count"]').val(),
+            'fields': fieldsArray
+        };
+
+        $.post('save.php', data, function(t) {
+            document.location = '/index.php?id=' + t;
+        });
 
         return false;
     });
