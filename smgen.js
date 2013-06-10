@@ -771,6 +771,8 @@ $(document).ready(function() {
 
             var fieldDoNotLoad = tr.find(':input[name="field_do_not_load[]"]').is(':checked');
             var constFieldValue = dblQuotify(fieldName);
+            var constFieldCountValue = dblQuotify(fieldName + "_Count");
+            var fieldTempKeySize = fieldName.length + 12;
 
             if(fieldType == 'int') {
                 if(fieldDoNotLoad) {
@@ -864,22 +866,132 @@ $(document).ready(function() {
                 }
             }
             else if(fieldType == 'vectors') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", CreateArray(3));\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = CreateArray(3);\n";
 
+                    outputText += makeIndents(1) + "new " + varPrefix + fieldName + "KVCount = KvGetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ");\n\n";
+
+                    outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+                    outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Temp[3];\n\n";
+
+                    outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + "KvGetVector(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n\n";
+                    outputText += makeIndents(2) + "PushArrayArray(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp, 3);\n";
+                    outputText += makeIndents(1) + "}\n\n";
+
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", " + varPrefix + fieldName + "List);\n";
+                }
             }
             else if(fieldType == 'strings') {
+                var fieldSizeInCells = Math.ceil(fieldMaxLength / 4);
 
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", CreateArray(" + fieldSizeInCells + "));\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = CreateArray(" + fieldSizeInCells + ");\n";
+
+                    outputText += makeIndents(1) + "new " + varPrefix + fieldName + "KVCount = KvGetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ");\n\n";
+
+                    outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+                    outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Temp[" + fieldMaxLength + "];\n\n";
+
+                    outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + "KvGetString(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp, " + fieldMaxLength + ");\n\n";
+                    outputText += makeIndents(2) + "PushArrayString(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
+                    outputText += makeIndents(1) + "}\n\n";
+
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", " + varPrefix + fieldName + "List);\n";
+                }
             }
             else if(fieldType == 'ints') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", CreateArray(1));\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = CreateArray(1);\n";
 
+                    outputText += makeIndents(1) + "new " + varPrefix + fieldName + "KVCount = KvGetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ");\n\n";
+
+                    outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+                    outputText += makeIndents(1) + "decl " + varPrefix + fieldName + "Temp;\n\n";
+
+                    outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + varPrefix + fieldName + "Temp = KvGetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey);\n\n";
+                    outputText += makeIndents(2) + "PushArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
+                    outputText += makeIndents(1) + "}\n\n";
+
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", " + varPrefix + fieldName + "List);\n";
+                }
             }
             else if(fieldType == 'floats') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", CreateArray(1));\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = CreateArray(1);\n";
 
+                    outputText += makeIndents(1) + "new " + varPrefix + fieldName + "KVCount = KvGetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ");\n\n";
+
+                    outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+                    outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Temp;\n\n";
+
+                    outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + varPrefix + fieldName + "Temp = KvGetFloat(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey);\n\n";
+                    outputText += makeIndents(2) + "PushArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
+                    outputText += makeIndents(1) + "}\n\n";
+
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", " + varPrefix + fieldName + "List);\n";
+                }
             }
             else if(fieldType == 'handles') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", CreateArray(1));\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = CreateArray(1);\n";
 
+                    outputText += makeIndents(1) + "new " + varPrefix + fieldName + "KVCount = KvGetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ");\n\n";
+
+                    outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+                    outputText += makeIndents(1) + "decl Handle:" + varPrefix + fieldName + "Temp;\n\n";
+
+                    outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + varPrefix + fieldName + "Temp = Handle:KvGetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey);\n\n";
+                    outputText += makeIndents(2) + "PushArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
+                    outputText += makeIndents(1) + "}\n\n";
+
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", " + varPrefix + fieldName + "List);\n";
+                }
             }
             else if(fieldType == 'bools') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", CreateArray(1));\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = CreateArray(1);\n";
 
+                    outputText += makeIndents(1) + "new " + varPrefix + fieldName + "KVCount = KvGetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ");\n\n";
+
+                    outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
+                    outputText += makeIndents(1) + "decl bool:" + varPrefix + fieldName + "Temp;\n\n";
+
+                    outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + varPrefix + fieldName + "Temp = KvGetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey) ? true : false;\n\n";
+                    outputText += makeIndents(2) + "PushArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
+                    outputText += makeIndents(1) + "}\n\n";
+
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", " + varPrefix + fieldName + "List);\n";
+                }
             }
         });
 
