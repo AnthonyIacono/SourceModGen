@@ -258,6 +258,7 @@ $(document).ready(function() {
         functionPrefix: 'War3_',
         paramPrefix: 'p_',
         variablePrefix: 's_',
+        constPrefix: 'WAR3_',
         indentUseSpaces: true,
         indentSpaceCount: 4,
         fields: [{
@@ -284,6 +285,7 @@ $(document).ready(function() {
     var vipPlayerStructure = {
         name: 'VIPPlayer',
         functionPrefix: 'PTV_',
+        constPrefix: 'PTV_',
         paramPrefix: 'p_',
         variablePrefix: 's_',
         indentUseSpaces: true,
@@ -326,6 +328,7 @@ $(document).ready(function() {
         functionPrefix: 'PTV_',
         paramPrefix: 'p_',
         variablePrefix: 's_',
+        constPrefix: 'PTV_',
         indentUseSpaces: true,
         indentSpaceCount: 4,
         fields: [{
@@ -390,6 +393,7 @@ $(document).ready(function() {
         genForm.find(':input[name=function_prefix]').val(structureInfo['functionPrefix']);
         genForm.find(':input[name=function_param_prefix]').val(structureInfo['paramPrefix']);
         genForm.find(':input[name=function_var_prefix]').val(structureInfo['variablePrefix']);
+        genForm.find(':input[name=const_prefix]').val(structureInfo['constPrefix']);
 
         if(structureInfo['indentUseSpaces']) {
             genForm.find(':input[name=generate_use_spaces]').attr('checked', 'checked');
@@ -501,6 +505,7 @@ $(document).ready(function() {
         var useSpacesInstead = $(':input[name="generate_use_spaces"]').is(':checked');
         var spaceCount = $(':input[name="generate_space_count"]').val();
         var varPrefix = $.trim($(':input[name=function_var_prefix]').val());
+        var constPrefix = $.trim($(':input[name=const_prefix]').val());
         var failedValidation = false;
 
         // Validation
@@ -633,6 +638,30 @@ $(document).ready(function() {
             return "\"" + text.replace(/"/g, "\\\"") + "\"";
         };
 
+        // Start with constants that can be easily adjusted (for DB and other things)
+        outputText += "#define " + constPrefix + structName.toUpperCase() + "_BLOCKSIZE " + structSizeInCells + "\n";
+
+        fieldList.find('tr').each(function(fieldIndex) {
+            var tr = $(this);
+            var fieldType = tr.find(':input[name="field_type[]"]').val();
+            var fieldName = tr.find(':input[name="field_name[]"]').val();
+            var fieldDoNotSave = tr.find(':input[name="field_do_not_save[]"]').is(':checked');
+            var fieldDoNotLoad = tr.find(':input[name="field_do_not_load[]"]').is(':checked');
+
+            var fieldMaxLength = parseInt($.trim(tr.find(':input[name="field_maxlen[]"]').val()), 10);
+            fieldMaxLength = isNaN(fieldMaxLength) ? 0 : fieldMaxLength;
+
+            if(!fieldDoNotSave || !fieldDoNotLoad) {
+                outputText += "#define " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY " + dblQuotify(fieldName) + "\n";
+            }
+
+            if(['string', 'strings', 'array'].indexOf(fieldType) != -1) {
+                outputText += "#define " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN " + fieldMaxLength + "\n";
+            }
+        });
+
+        outputText += "\n";
+
         // Start with the function for creating a single object
         outputText += "stock Handle:" + fnPrefix + "Create" + structName + "(";
 
@@ -668,7 +697,7 @@ $(document).ready(function() {
                 outputText += 'Handle:' + paramPrefix + fieldName;
             }
             else if(fieldType == 'array') {
-                outputText += 'any:' + paramPrefix + fieldName + "[" + fieldMaxLength + "]";
+                outputText += 'any:' + paramPrefix + fieldName + "[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN]";
             }
             else if(fieldType == 'bool') {
                 outputText += 'bool:' + paramPrefix + fieldName;
@@ -697,7 +726,7 @@ $(document).ready(function() {
 
         outputText += ") {\n";
 
-        outputText += makeIndents(1) + "new Handle:" + varPrefix + structName + " = CreateArray(" + structSizeInCells + ");\n\n";
+        outputText += makeIndents(1) + "new Handle:" + varPrefix + structName + " = CreateArray(" + constPrefix + structName.toUpperCase() + "_BLOCKSIZE);\n\n";
 
         fieldList.find('tr').each(function(fieldIndex) {
             var tr = $(this);
@@ -716,7 +745,7 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + paramPrefix + fieldName + ", 3);\n";
             }
             else if(fieldType == 'array') {
-                outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + paramPrefix + fieldName + ", " + fieldMaxLength + ");\n";
+                outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + paramPrefix + fieldName + ", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
             }
         });
 
@@ -727,7 +756,7 @@ $(document).ready(function() {
         // Function for copying a single object
         outputText += "stock Handle:" + fnPrefix + "Copy" + structName + "(Handle:" + paramPrefix + structName + ") {\n";
 
-        outputText += makeIndents(1) + "new Handle:" + varPrefix + structName + " = CreateArray(" + structSizeInCells + ");\n\n";
+        outputText += makeIndents(1) + "new Handle:" + varPrefix + structName + " = CreateArray(" + constPrefix + structName.toUpperCase() + "_BLOCKSIZE);\n\n";
 
         fieldList.find('tr').each(function(fieldIndex) {
             var tr = $(this);
@@ -740,8 +769,8 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
             }
             else if(fieldType == 'string') {
-                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Output[" + fieldMaxLength + "];\n";
-                outputText += makeIndents(1) + "GetArrayString(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n";
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Output[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n";
+                outputText += makeIndents(1) + "GetArrayString(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
                 outputText += makeIndents(1) + "PushArrayString(" + varPrefix + structName + ", " + varPrefix + fieldName + "Output);\n"
             }
             else if(fieldType == 'vector') {
@@ -750,9 +779,9 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Output, 3);\n"
             }
             else if(fieldType == 'array') {
-                outputText += makeIndents(1) + "decl any:" + varPrefix + fieldName + "Output[" + fieldMaxLength + "];\n";
-                outputText += makeIndents(1) + "GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n";
-                outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n"
+                outputText += makeIndents(1) + "decl any:" + varPrefix + fieldName + "Output[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n";
+                outputText += makeIndents(1) + "GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
+                outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Output, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n"
             }
         });
 
@@ -763,7 +792,7 @@ $(document).ready(function() {
         // Function for reading a single structure from KV
         outputText += "stock Handle:" + fnPrefix + "Read" + structName + "FromKV(Handle:" + paramPrefix + structName + "KV) {\n";
 
-        outputText += makeIndents(1) + "new Handle:" + varPrefix + structName + " = CreateArray(" + structSizeInCells + ");\n\n";
+        outputText += makeIndents(1) + "new Handle:" + varPrefix + structName + " = CreateArray(" + constPrefix + structName.toUpperCase() + "_BLOCKSIZE);\n\n";
 
         fieldList.find('tr').each(function(fieldIndex) {
             var tr = $(this);
@@ -773,7 +802,6 @@ $(document).ready(function() {
             fieldMaxLength = isNaN(fieldMaxLength) ? 0 : fieldMaxLength;
 
             var fieldDoNotLoad = tr.find(':input[name="field_do_not_load[]"]').is(':checked');
-            var constFieldValue = dblQuotify(fieldName);
             var constFieldCountValue = dblQuotify(fieldName + "_Count");
             var fieldTempKeySize = fieldName.length + 12;
 
@@ -782,7 +810,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", 0);\n";
                 }
                 else {
-                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constFieldValue + "));\n";
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY));\n";
                 }
             }
             else if(fieldType == 'float') {
@@ -790,7 +818,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", 0.0);\n";
                 }
                 else {
-                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetFloat(" + paramPrefix + structName + "KV, " + constFieldValue + "));\n";
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetFloat(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY));\n";
                 }
             }
             else if(fieldType == 'string') {
@@ -798,8 +826,8 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "PushArrayString(" + varPrefix + structName + ", \"\");\n";
                 }
                 else {
-                    outputText += makeIndents(1) + "new String:" + varPrefix + fieldName + "Output[" + fieldMaxLength + "];\n";
-                    outputText += makeIndents(1) + "KvGetString(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n";
+                    outputText += makeIndents(1) + "new String:" + varPrefix + fieldName + "Output[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n";
+                    outputText += makeIndents(1) + "KvGetString(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "Output, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
                     outputText += makeIndents(1) + "PushArrayString(" + varPrefix + structName + ", " + varPrefix + fieldName + "Output);\n";
                 }
             }
@@ -808,7 +836,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", 0);\n";
                 }
                 else {
-                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constFieldValue + "));\n";
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY));\n";
                 }
             }
             else if(fieldType == 'vector') {
@@ -817,7 +845,7 @@ $(document).ready(function() {
                 }
                 else {
                     outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Value[3];\n";
-                    outputText += makeIndents(1) + "KvGetVector(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Value);\n";
+                    outputText += makeIndents(1) + "KvGetVector(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "Value);\n";
                     outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Value, 3);\n";
                 }
             }
@@ -826,16 +854,16 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", INVALID_HANDLE);\n";
                 }
                 else {
-                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constFieldValue + "));\n";
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY));\n";
                 }
             }
             else if(fieldType == 'array') {
                 if(fieldDoNotLoad) {
-                    outputText += makeIndents(1) + "new any:" + varPrefix + fieldName + "Value[" + fieldMaxLength + "];\n";
-                    outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Value, " + fieldMaxLength + ");\n";
+                    outputText += makeIndents(1) + "new any:" + varPrefix + fieldName + "Value[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n";
+                    outputText += makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Value, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
                 }
                 else {
-                    outputText += makeIndents(1) + "new any:" + varPrefix + fieldName + "Value[" + fieldMaxLength + "];\n";
+                    outputText += makeIndents(1) + "new any:" + varPrefix + fieldName + "Value[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n";
 
                     outputText += makeIndents(1) + "new KvDataTypes:" + varPrefix + fieldName + "CurrentType;\n";
 
@@ -855,7 +883,7 @@ $(document).ready(function() {
                         outputText += makeIndents(1) + "}\n";
                     }
 
-                    outputText += "\n" + makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Value, " + fieldMaxLength + ");\n";
+                    outputText += "\n" + makeIndents(1) + "PushArrayArray(" + varPrefix + structName + ", " + varPrefix + fieldName + "Value, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
                 }
             }
             else if(fieldType == 'bool') {
@@ -863,7 +891,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", false);\n";
                 }
                 else {
-                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ") ? true : false);\n";
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY) ? true : false);\n";
                 }
             }
             else if(fieldType == 'vectors') {
@@ -879,7 +907,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Temp[3];\n\n";
 
                     outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n\n";
                     outputText += makeIndents(2) + "KvGetVector(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n\n";
                     outputText += makeIndents(2) + "PushArrayArray(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp, 3);\n";
                     outputText += makeIndents(1) + "}\n\n";
@@ -899,11 +927,11 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "new " + varPrefix + fieldName + "KVCount = KvGetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ");\n\n";
 
                     outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
-                    outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Temp[" + fieldMaxLength + "];\n\n";
+                    outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Temp[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n\n";
 
                     outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
-                    outputText += makeIndents(2) + "KvGetString(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp, " + fieldMaxLength + ");\n\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + "KvGetString(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n\n";
                     outputText += makeIndents(2) + "PushArrayString(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
                     outputText += makeIndents(1) + "}\n\n";
 
@@ -923,7 +951,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "decl " + varPrefix + fieldName + "Temp;\n\n";
 
                     outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n\n";
                     outputText += makeIndents(2) + varPrefix + fieldName + "Temp = KvGetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey);\n\n";
                     outputText += makeIndents(2) + "PushArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
                     outputText += makeIndents(1) + "}\n\n";
@@ -944,7 +972,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Temp;\n\n";
 
                     outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n\n";
                     outputText += makeIndents(2) + varPrefix + fieldName + "Temp = KvGetFloat(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey);\n\n";
                     outputText += makeIndents(2) + "PushArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
                     outputText += makeIndents(1) + "}\n\n";
@@ -965,7 +993,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "decl Handle:" + varPrefix + fieldName + "Temp;\n\n";
 
                     outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n\n";
                     outputText += makeIndents(2) + varPrefix + fieldName + "Temp = Handle:KvGetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey);\n\n";
                     outputText += makeIndents(2) + "PushArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
                     outputText += makeIndents(1) + "}\n\n";
@@ -986,7 +1014,7 @@ $(document).ready(function() {
                     outputText += makeIndents(1) + "decl bool:" + varPrefix + fieldName + "Temp;\n\n";
 
                     outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "KVCount; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n\n";
+                    outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n\n";
                     outputText += makeIndents(2) + varPrefix + fieldName + "Temp = KvGetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey) ? true : false;\n\n";
                     outputText += makeIndents(2) + "PushArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "Temp);\n";
                     outputText += makeIndents(1) + "}\n\n";
@@ -1011,7 +1039,6 @@ $(document).ready(function() {
             fieldMaxLength = isNaN(fieldMaxLength) ? 0 : fieldMaxLength;
 
             var fieldDoNotSave = tr.find(':input[name="field_do_not_save[]"]').is(':checked');
-            var constFieldValue = dblQuotify(fieldName);
             var constFieldCountValue = dblQuotify(fieldName + "_Count");
 
             var fieldTempKeySize = fieldName.length + 12;
@@ -1021,32 +1048,32 @@ $(document).ready(function() {
             }
 
             if(fieldType == 'int') {
-                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
             }
             else if(fieldType == 'float') {
-                outputText += makeIndents(1) + "KvSetFloat(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
+                outputText += makeIndents(1) + "KvSetFloat(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
             }
             else if(fieldType == 'string') {
-                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Temp[" + fieldMaxLength + "];\n";
-                outputText += makeIndents(1) + "GetArrayString(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Temp, " + fieldMaxLength + ");\n";
-                outputText += makeIndents(1) + "KvSetString(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Temp);\n";
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Temp[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n";
+                outputText += makeIndents(1) + "GetArrayString(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Temp, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
+                outputText += makeIndents(1) + "KvSetString(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "Temp);\n";
             }
             else if(fieldType == 'char') {
-                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
             }
             else if(fieldType == 'vector') {
                 outputText += makeIndents(1) + "decl Float:" + varPrefix + fieldName + "Temp[3];\n";
                 outputText += makeIndents(1) + "GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Temp, 3);\n";
-                outputText += makeIndents(1) + "KvSetVector(" + paramPrefix + structName + "KV, " + constFieldValue + ", " + varPrefix + fieldName + "Temp);\n";
+                outputText += makeIndents(1) + "KvSetVector(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "Temp);\n";
             }
             else if(fieldType == 'handle') {
-                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
             }
             else if(fieldType == 'array') {
                 // No KV writing :( Can't check type at runtime. Sowwy. Maybe a reason to implement RTTI later SM devs :D
             }
             else if(fieldType == 'bool') {
-                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldValue + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ") ? 1 : 0);\n";
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ") ? 1 : 0);\n";
             }
             else if(fieldType == 'vectors') {
                 outputText += makeIndents(1) + "new Handle:" + varPrefix + fieldName + "List = GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ");\n";
@@ -1058,7 +1085,7 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
 
                 outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n";
                 outputText += makeIndents(2) + "GetArrayArray(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex, " + varPrefix + fieldName + "Temp, 3);\n";
                 outputText += makeIndents(2) + "KvSetVector(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n";
                 outputText += makeIndents(1) + "}\n";
@@ -1068,13 +1095,13 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "new " + varPrefix + fieldName + "Count = GetArraySize(" + varPrefix + fieldName + "List);\n";
                 outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constFieldCountValue + ", " + varPrefix + fieldName + "Count);\n\n";
 
-                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Temp[" + fieldMaxLength + "];\n\n";
+                outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "Temp[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n\n";
 
                 outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
 
                 outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
-                outputText += makeIndents(2) + "GetArrayString(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex, " + varPrefix + fieldName + "Temp, " + fieldMaxLength + ");\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "GetArrayString(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex, " + varPrefix + fieldName + "Temp, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
                 outputText += makeIndents(2) + "KvSetString(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n";
                 outputText += makeIndents(1) + "}\n";
             }
@@ -1088,7 +1115,7 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
 
                 outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n";
                 outputText += makeIndents(2) + varPrefix + fieldName + "Temp = GetArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex);\n";
                 outputText += makeIndents(2) + "KvSetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n";
                 outputText += makeIndents(1) + "}\n";
@@ -1103,7 +1130,7 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
 
                 outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n";
                 outputText += makeIndents(2) + varPrefix + fieldName + "Temp = GetArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex);\n";
                 outputText += makeIndents(2) + "KvSetFloat(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp);\n";
                 outputText += makeIndents(1) + "}\n";
@@ -1118,7 +1145,7 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
 
                 outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n";
                 outputText += makeIndents(2) + varPrefix + fieldName + "Temp = GetArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex);\n";
                 outputText += makeIndents(2) + "KvSetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, _:" + varPrefix + fieldName + "Temp);\n";
                 outputText += makeIndents(1) + "}\n";
@@ -1133,7 +1160,7 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "decl String:" + varPrefix + fieldName + "TempKey[" + fieldTempKeySize + "];\n\n";
 
                 outputText += makeIndents(1) + "for(new " + varPrefix + fieldName + "CurrentIndex = 0; " + varPrefix + fieldName + "CurrentIndex < " + varPrefix + fieldName + "Count; " + varPrefix + fieldName + "CurrentIndex++) {\n";
-                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constFieldValue + ", " + varPrefix + fieldName + "CurrentIndex);\n";
+                outputText += makeIndents(2) + "Format(" + varPrefix + fieldName + "TempKey, " + fieldTempKeySize + ", \"%s_%d\", " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "CurrentIndex);\n";
                 outputText += makeIndents(2) + varPrefix + fieldName + "Temp = GetArrayCell(" + varPrefix + fieldName + "List, " + varPrefix + fieldName + "CurrentIndex) ? true : false;\n";
                 outputText += makeIndents(2) + "KvSetNum(" + paramPrefix + structName + "KV, " + varPrefix + fieldName + "TempKey, " + varPrefix + fieldName + "Temp ? 1 : 0);\n";
                 outputText += makeIndents(1) + "}\n";
@@ -1241,8 +1268,8 @@ $(document).ready(function() {
             else if(fieldType == 'string') {
                 outputText += "stock " + fnPrefix + "Get" + structName + fieldName + "(Handle:" + paramPrefix + structName + ", String:" + paramPrefix + fieldName + "Output[], " + paramPrefix + fieldName + "OutputMaxLen = -1) {\n";
 
-                outputText += makeIndents(1) + "if(" + paramPrefix + fieldName + "OutputMaxLen == -1 || " + paramPrefix + fieldName + " > " + fieldMaxLength + ") {\n";
-                outputText += makeIndents(2) + paramPrefix + fieldName + "OutputMaxLen = " + fieldMaxLength + ";\n";
+                outputText += makeIndents(1) + "if(" + paramPrefix + fieldName + "OutputMaxLen == -1 || " + paramPrefix + fieldName + " > " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN) {\n";
+                outputText += makeIndents(2) + paramPrefix + fieldName + "OutputMaxLen = " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN;\n";
                 outputText += makeIndents(1) + "}\n\n";
 
                 outputText += makeIndents(1) + "GetArrayString(" + paramPrefix + structName + ", " + fieldIndex + ", " + paramPrefix + fieldName + "Output, " + paramPrefix + fieldName + "OutputMaxLen);\n";
@@ -1268,12 +1295,12 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "}\n\n";
 
                 outputText += makeIndents(1) + "new Handle:" + varPrefix + "Current" + structName + " = INVALID_HANDLE;\n";
-                outputText += makeIndents(1) + "decl String:" + varPrefix + "Current" + fieldName + "Value[" + fieldMaxLength + "];\n\n";
+                outputText += makeIndents(1) + "decl String:" + varPrefix + "Current" + fieldName + "Value[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n\n";
 
                 outputText += makeIndents(1) + "for(new " + varPrefix + structName + "CurrentIndex = " + paramPrefix + structName + "StartIndex; " + varPrefix + structName + "CurrentIndex < " + varPrefix + structName + "Count; " + varPrefix + structName + "CurrentIndex++) {\n";
                 outputText += makeIndents(2) + varPrefix + "Current" + structName + " = GetArrayCell(" + paramPrefix + structName + "List, " + varPrefix + structName + "CurrentIndex);\n\n";
 
-                outputText += makeIndents(2) + "GetArrayString(" + varPrefix + "Current" + structName + ", " + fieldIndex + ", " + varPrefix + "Current" + fieldName + "Value, " + fieldMaxLength + ");\n\n";
+                outputText += makeIndents(2) + "GetArrayString(" + varPrefix + "Current" + structName + ", " + fieldIndex + ", " + varPrefix + "Current" + fieldName + "Value, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n\n";
 
                 outputText += makeIndents(2) + "if(!StrEqual(" + varPrefix + "Current" + fieldName + "Value, " + paramPrefix + fieldName + "Value, " + paramPrefix + fieldName + "CaseSens)) {\n";
                 outputText += makeIndents(3) + "continue;\n";
@@ -1393,8 +1420,8 @@ $(document).ready(function() {
             else if(fieldType == 'array') {
                 outputText += "stock " + fnPrefix + "Get" + structName + fieldName + "(Handle:" + paramPrefix + structName + ", any:" + paramPrefix + fieldName + "Output[], " + paramPrefix + fieldName + "OutputMaxLen = -1) {\n";
 
-                outputText += makeIndents(1) + "if(" + paramPrefix + fieldName + "OutputMaxLen == -1 || " + paramPrefix + fieldName + " > " + fieldMaxLength + ") {\n";
-                outputText += makeIndents(2) + paramPrefix + fieldName + "OutputMaxLen = " + fieldMaxLength + ";\n";
+                outputText += makeIndents(1) + "if(" + paramPrefix + fieldName + "OutputMaxLen == -1 || " + paramPrefix + fieldName + " > " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN) {\n";
+                outputText += makeIndents(2) + paramPrefix + fieldName + "OutputMaxLen = " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN;\n";
                 outputText += makeIndents(1) + "}\n\n";
 
                 outputText += makeIndents(1) + "return GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + paramPrefix + fieldName + "Output, " + paramPrefix + fieldName + "OutputMaxLen);\n";
@@ -1403,24 +1430,24 @@ $(document).ready(function() {
 
                 outputText += "stock " + fnPrefix + "Set" + structName + fieldName + "(Handle:" + paramPrefix + structName + ", const any:" + paramPrefix + fieldName + "Value[]) {\n";
 
-                outputText += makeIndents(1) + "SetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + paramPrefix + fieldName + "Value, " + fieldMaxLength + ");\n";
+                outputText += makeIndents(1) + "SetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + paramPrefix + fieldName + "Value, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
 
                 outputText += "}\n\n";
 
                 outputText += "stock any:" + fnPrefix + "Get" + structName + fieldName + "Item(Handle:" + paramPrefix + structName + ", " + paramPrefix + fieldName + "ItemIndex) {\n";
 
-                outputText += makeIndents(1) + "decl any:" + varPrefix + fieldName + "Output[" + fieldMaxLength + "];\n\n";
-                outputText += makeIndents(1) + "GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n\n";
+                outputText += makeIndents(1) + "decl any:" + varPrefix + fieldName + "Output[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n\n";
+                outputText += makeIndents(1) + "GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n\n";
                 outputText += makeIndents(1) + "return " + varPrefix + fieldName + "Output[" + paramPrefix + fieldName + "ItemIndex];\n";
 
                 outputText += "}\n\n";
 
                 outputText += "stock any:" + fnPrefix + "Set" + structName + fieldName + "Item(Handle:" + paramPrefix + structName + ", " + paramPrefix + fieldName + "ItemIndex, const any:" + paramPrefix + fieldName + "ItemValue) {\n";
 
-                outputText += makeIndents(1) + "decl any:" + varPrefix + fieldName + "Output[" + fieldMaxLength + "];\n\n";
-                outputText += makeIndents(1) + "GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n\n";
+                outputText += makeIndents(1) + "decl any:" + varPrefix + fieldName + "Output[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN];\n\n";
+                outputText += makeIndents(1) + "GetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n\n";
                 outputText += makeIndents(1) + varPrefix + fieldName + "Output[" + paramPrefix + fieldName + "ItemIndex] = " + paramPrefix + fieldName + "ItemValue;\n\n";
-                outputText += makeIndents(1) + "SetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + fieldMaxLength + ");\n";
+                outputText += makeIndents(1) + "SetArrayArray(" + paramPrefix + structName + ", " + fieldIndex + ", " + varPrefix + fieldName + "Output, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN);\n";
 
                 outputText += "}\n\n";
             }

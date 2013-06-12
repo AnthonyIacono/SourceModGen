@@ -63,6 +63,7 @@ mysql_select_db('smgen');
             <label>Function Prefix [naming]: <input name="function_prefix" value="" /></label>
             <label>Function Parameter Prefix [naming]: <input name="function_param_prefix" value="" /></label>
             <label>Variable Prefix [naming]: <input name="function_var_prefix" value="" /></label>
+            <label>Constant Prefix [naming]: <input name="const_prefix" value="" /></label>
             <label>Spaces Instead Of Tabs [formatting]: <input name="generate_use_spaces" type="checkbox" value="1" /></label>
             <label>Space Count for Tab (if above enabled) [formatting]: <input name="generate_space_count" type="text" value="" /></label>
             <input type="submit" value="Generate Functions" />&nbsp;<input id="saveBtn" type="button" value="Save (link a friend)" />
