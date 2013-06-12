@@ -1298,7 +1298,7 @@ $(document).ready(function() {
             else if(fieldType == 'string') {
                 outputText += "stock " + fnPrefix + "Get" + structName + fieldName + "(Handle:" + paramPrefix + structName + ", String:" + paramPrefix + fieldName + "Output[], " + paramPrefix + fieldName + "OutputMaxLen = -1) {\n";
 
-                outputText += makeIndents(1) + "if(" + paramPrefix + fieldName + "OutputMaxLen == -1 || " + paramPrefix + fieldName + " > " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN) {\n";
+                outputText += makeIndents(1) + "if(" + paramPrefix + fieldName + "OutputMaxLen == -1 || " + paramPrefix + fieldName + "OutputMaxLen > " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN) {\n";
                 outputText += makeIndents(2) + paramPrefix + fieldName + "OutputMaxLen = " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN;\n";
                 outputText += makeIndents(1) + "}\n\n";
 
@@ -1450,7 +1450,7 @@ $(document).ready(function() {
             else if(fieldType == 'array') {
                 outputText += "stock " + fnPrefix + "Get" + structName + fieldName + "(Handle:" + paramPrefix + structName + ", any:" + paramPrefix + fieldName + "Output[], " + paramPrefix + fieldName + "OutputMaxLen = -1) {\n";
 
-                outputText += makeIndents(1) + "if(" + paramPrefix + fieldName + "OutputMaxLen == -1 || " + paramPrefix + fieldName + " > " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN) {\n";
+                outputText += makeIndents(1) + "if(" + paramPrefix + fieldName + "OutputMaxLen == -1 || " + paramPrefix + fieldName + "OutputMaxLen > " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN) {\n";
                 outputText += makeIndents(2) + paramPrefix + fieldName + "OutputMaxLen = " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN;\n";
                 outputText += makeIndents(1) + "}\n\n";
 

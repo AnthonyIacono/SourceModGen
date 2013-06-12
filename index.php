@@ -5,10 +5,10 @@ mysql_select_db('smgen');
 <html>
     <head>
         <title>SourceModGen by PimpinJuice</title>
-        <link rel="stylesheet" href="smgen.css?v=1.2" />
-        <script src="jquery.js?v=1.2"></script>
-        <script src="ZeroClipboard.js?v=1.2"></script>
-        <script src="smgen.js?v=1.2"></script>
+        <link rel="stylesheet" href="smgen.css?v=1.2.1" />
+        <script src="jquery.js?v=1.2.1"></script>
+        <script src="ZeroClipboard.js?v=1.2.1"></script>
+        <script src="smgen.js?v=1.2.1"></script>
         <script type="text/javascript">
             $(document).ready(function() {
                 window.defaultSMGen();
