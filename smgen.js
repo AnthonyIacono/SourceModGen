@@ -387,24 +387,54 @@ $(document).ready(function() {
     };
 
     var loadStructure = function(structureInfo) {
+        var defaultStructure = {
+            name: 'SomeStruct',
+            functionPrefix: 'MyPlugin_',
+            paramPrefix: 'p_',
+            variablePrefix: 's_',
+            constPrefix: 'MYPLUGIN_',
+            indentUseSpaces: true,
+            indentSpaceCount: 4
+        };
+
+        var defaultField = {
+            name: 'FieldName',
+            type: 'int',
+            maxLength: '',
+            doNotSave: false,
+            doNotLoad: false
+        };
+
+        var readStructureInfo = $.extend({}, defaultStructure, structureInfo);
+
+        var newFields = [];
+
+        $.each(readStructureInfo['fields'], function() {
+            var fieldData = this;
+
+            newFields.push($.extend({}, defaultField, fieldData));
+        });
+
+        readStructureInfo['fields'] = newFields;
+
         fieldList.html('');
 
-        genForm.find(':input[name=structure_name]').val(structureInfo['name']);
-        genForm.find(':input[name=function_prefix]').val(structureInfo['functionPrefix']);
-        genForm.find(':input[name=function_param_prefix]').val(structureInfo['paramPrefix']);
-        genForm.find(':input[name=function_var_prefix]').val(structureInfo['variablePrefix']);
-        genForm.find(':input[name=const_prefix]').val(structureInfo['constPrefix']);
+        genForm.find(':input[name=structure_name]').val(readStructureInfo['name']);
+        genForm.find(':input[name=function_prefix]').val(readStructureInfo['functionPrefix']);
+        genForm.find(':input[name=function_param_prefix]').val(readStructureInfo['paramPrefix']);
+        genForm.find(':input[name=function_var_prefix]').val(readStructureInfo['variablePrefix']);
+        genForm.find(':input[name=const_prefix]').val(readStructureInfo['constPrefix']);
 
-        if(structureInfo['indentUseSpaces']) {
+        if(readStructureInfo['indentUseSpaces']) {
             genForm.find(':input[name=generate_use_spaces]').attr('checked', 'checked');
         }
         else {
             genForm.find(':input[name=generate_use_spaces]').removeAttr('checked');
         }
 
-        genForm.find(':input[name=generate_space_count]').val(structureInfo['indentSpaceCount']);
+        genForm.find(':input[name=generate_space_count]').val(readStructureInfo['indentSpaceCount']);
 
-        $.each(structureInfo['fields'], function() {
+        $.each(readStructureInfo['fields'], function() {
             var fieldInfo = this;
 
             var fieldRow = $(document.createElement('tr'));
@@ -1604,6 +1634,7 @@ $(document).ready(function() {
             'variablePrefix': $(':input[name="function_var_prefix"]').val(),
             'indentUseSpaces': $(':input[name="generate_use_spaces"]').is(':checked'),
             'indentSpaceCount': $(':input[name="generate_space_count"]').val(),
+            'constPrefix': $(':input[name="const_prefix"]').val(),
             'fields': fieldsArray
         };
 
