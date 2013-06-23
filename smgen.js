@@ -231,6 +231,9 @@ $(document).ready(function() {
         key: 'handle',
         text: 'Handle'
     }, {
+        key: 'function',
+        text: 'Function'
+    }, {
         key: 'array',
         text: 'Array [no kv write :( sorry]'
     }, {
@@ -624,6 +627,9 @@ $(document).ready(function() {
             else if(fieldType == 'handle') {
                 currentMemberSize = 1;
             }
+            else if(fieldType == 'function') {
+                currentMemberSize = 1;
+            }
             else if(fieldType == 'array') {
                 currentMemberSize = fieldMaxLength;
             }
@@ -726,6 +732,9 @@ $(document).ready(function() {
             else if(fieldType == 'handle') {
                 outputText += 'Handle:' + paramPrefix + fieldName;
             }
+            else if(fieldType == 'function') {
+                outputText += 'Function:' + paramPrefix + fieldName;
+            }
             else if(fieldType == 'array') {
                 outputText += 'any:' + paramPrefix + fieldName + "[" + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_MAXLEN]";
             }
@@ -765,7 +774,7 @@ $(document).ready(function() {
             var fieldMaxLength = parseInt($.trim(tr.find(':input[name="field_maxlen[]"]').val()), 10);
             fieldMaxLength = isNaN(fieldMaxLength) ? 0 : fieldMaxLength;
 
-            if(['int', 'float', 'char', 'handle', 'bool', 'vectors', 'strings', 'ints', 'floats', 'handles', 'bools'].indexOf(fieldType) != -1) {
+            if(['int', 'float', 'char', 'handle', 'function', 'bool', 'vectors', 'strings', 'ints', 'floats', 'handles', 'bools'].indexOf(fieldType) != -1) {
                 outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", " + paramPrefix + fieldName + ");\n";
             }
             else if(fieldType == 'string') {
@@ -795,7 +804,7 @@ $(document).ready(function() {
             var fieldMaxLength = parseInt($.trim(tr.find(':input[name="field_maxlen[]"]').val()), 10);
             fieldMaxLength = isNaN(fieldMaxLength) ? 0 : fieldMaxLength;
 
-            if(['int', 'float', 'char', 'handle', 'bool', 'vectors', 'strings', 'ints', 'floats', 'handles', 'bools'].indexOf(fieldType) != -1) {
+            if(['int', 'float', 'char', 'handle', 'function', 'bool', 'vectors', 'strings', 'ints', 'floats', 'handles', 'bools'].indexOf(fieldType) != -1) {
                 outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
             }
             else if(fieldType == 'string') {
@@ -880,6 +889,14 @@ $(document).ready(function() {
                 }
             }
             else if(fieldType == 'handle') {
+                if(fieldDoNotLoad) {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", INVALID_HANDLE);\n";
+                }
+                else {
+                    outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", KvGetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY));\n";
+                }
+            }
+            else if(fieldType == 'function') {
                 if(fieldDoNotLoad) {
                     outputText += makeIndents(1) + "PushArrayCell(" + varPrefix + structName + ", INVALID_HANDLE);\n";
                 }
@@ -1097,6 +1114,9 @@ $(document).ready(function() {
                 outputText += makeIndents(1) + "KvSetVector(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, " + varPrefix + fieldName + "Temp);\n";
             }
             else if(fieldType == 'handle') {
+                outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
+            }
+            else if(fieldType == 'function') {
                 outputText += makeIndents(1) + "KvSetNum(" + paramPrefix + structName + "KV, " + constPrefix + structName.toUpperCase() + "_" + fieldName.toUpperCase() + "_KV_KEY, GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + "));\n";
             }
             else if(fieldType == 'array') {
@@ -1417,6 +1437,50 @@ $(document).ready(function() {
                 outputText += "}\n\n";
 
                 outputText += "stock Handle:" + fnPrefix + "Find" + structName + "By" + fieldName + "(Handle:" + paramPrefix + structName + "List, Handle:" + paramPrefix + fieldName + "Value, " + paramPrefix + structName + "StartIndex = 0, &" + paramPrefix + structName + "FoundIndex = 0) {\n";
+
+                outputText += makeIndents(1) + "if(" + paramPrefix + structName + "StartIndex < 0) {\n";
+                outputText += makeIndents(2) + paramPrefix + structName + "StartIndex = 0;\n";
+                outputText += makeIndents(1) + "}\n\n";
+
+                outputText += makeIndents(1) + "new " + varPrefix + structName + "Count = GetArraySize(" + paramPrefix + structName + "List);\n\n";
+                outputText += makeIndents(1) + "if(" + paramPrefix + structName + "StartIndex >= " + varPrefix + structName + "Count) {\n";
+                outputText += makeIndents(2) + paramPrefix + structName + "FoundIndex = -1;\n";
+                outputText += makeIndents(2) + "return INVALID_HANDLE;\n";
+                outputText += makeIndents(1) + "}\n\n";
+
+                outputText += makeIndents(1) + "new Handle:" + varPrefix + "Current" + structName + " = INVALID_HANDLE;\n\n";
+
+                outputText += makeIndents(1) + "for(new " + varPrefix + structName + "CurrentIndex = " + paramPrefix + structName + "StartIndex; " + varPrefix + structName + "CurrentIndex < " + varPrefix + structName + "Count; " + varPrefix + structName + "CurrentIndex++) {\n";
+                outputText += makeIndents(2) + varPrefix + "Current"+ structName + " = GetArrayCell(" + paramPrefix + structName + "List, " + varPrefix + structName + "CurrentIndex);\n\n";
+
+                outputText += makeIndents(2) + "if(GetArrayCell(" + varPrefix + "Current" + structName + ", " + fieldIndex + ") != " + paramPrefix + fieldName + "Value) {\n";
+                outputText += makeIndents(3) + "continue;\n";
+                outputText += makeIndents(2) + "}\n\n";
+
+                outputText += makeIndents(2) + paramPrefix + structName + "FoundIndex = " + varPrefix + structName + "CurrentIndex;\n";
+                outputText += makeIndents(2) + "return " + varPrefix + "Current" + structName + ";\n";
+
+                outputText += makeIndents(1) + "}\n\n";
+
+                outputText += makeIndents(1) + paramPrefix + structName + "FoundIndex = -1;\n";
+                outputText += makeIndents(1) + "return INVALID_HANDLE;\n";
+
+                outputText += "}\n\n";
+            }
+            else if(fieldType == 'function') {
+                outputText += "stock Function:" + fnPrefix + "Get" + structName + fieldName + "(Handle:" + paramPrefix + structName + ") {\n";
+
+                outputText += makeIndents(1) + "return GetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ");\n";
+
+                outputText += "}\n\n";
+
+                outputText += "stock " + fnPrefix + "Set" + structName + fieldName + "(Handle:" + paramPrefix + structName + ", Function:" + paramPrefix + fieldName + "Value) {\n";
+
+                outputText += makeIndents(1) + "SetArrayCell(" + paramPrefix + structName + ", " + fieldIndex + ", " + paramPrefix + fieldName + "Value);\n";
+
+                outputText += "}\n\n";
+
+                outputText += "stock Handle:" + fnPrefix + "Find" + structName + "By" + fieldName + "(Handle:" + paramPrefix + structName + "List, Function:" + paramPrefix + fieldName + "Value, " + paramPrefix + structName + "StartIndex = 0, &" + paramPrefix + structName + "FoundIndex = 0) {\n";
 
                 outputText += makeIndents(1) + "if(" + paramPrefix + structName + "StartIndex < 0) {\n";
                 outputText += makeIndents(2) + paramPrefix + structName + "StartIndex = 0;\n";

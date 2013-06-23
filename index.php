@@ -5,10 +5,10 @@ mysql_select_db('smgen');
 <html>
     <head>
         <title>SourceModGen by PimpinJuice</title>
-        <link rel="stylesheet" href="smgen.css?v=1.2.1" />
-        <script src="jquery.js?v=1.2.1"></script>
-        <script src="ZeroClipboard.js?v=1.2.1"></script>
-        <script src="smgen.js?v=1.2.1"></script>
+        <link rel="stylesheet" href="smgen.css?v=1.3" />
+        <script src="jquery.js?v=1.3"></script>
+        <script src="ZeroClipboard.js?v=1.3"></script>
+        <script src="smgen.js?v=1.3"></script>
         <script type="text/javascript">
             $(document).ready(function() {
                 window.defaultSMGen();
@@ -35,7 +35,7 @@ mysql_select_db('smgen');
         </script>
     </head>
     <body>
-        <h2>SourceModGen v1.2 by PimpinJuice</h2>
+        <h2>SourceModGen v1.3 by PimpinJuice</h2>
         <p>Please describe your structure and ADT-functions will be generated.</p>
         <p>Examples: <a href="#" class="vipPlayerExampleLink">VIP Player</a>, <a href="#" class="vipRescueZoneExampleLink">VIP Rescue Zone</a></p>
         <form id="gen">
