@@ -1,7 +1,14 @@
 <?php
 
-mysql_connect('localhost', 'root', '');
-mysql_select_db('smgen');
+$password = "";
+
+$db_connection = new mysqli("localhost", "root", $password);
+
+if ($db_connection->connect_error) {
+    die("Connection failed: " . $db_connection->connect_error);
+}
+
+$db_connection->select_db('smgen');
 
 function MakeGuid() {
     $tl = str_pad(dechex(mt_rand(0, 65535)), 4, '0', STR_PAD_LEFT) . str_pad(dechex(mt_rand(0, 65535)), 4, '0', STR_PAD_LEFT);
@@ -29,11 +36,11 @@ foreach($_POST['fields'] as &$field) {
 $dataEncoded = json_encode($_POST);
 $guid = MakeGuid();
 
-$dataEscaped = mysql_real_escape_string($dataEncoded);
+$dataEscaped = $db_connection->real_escape_string($dataEncoded);
 
 $query = "INSERT INTO `smgen` (`guid`, `data`) VALUES ('{$guid}', '{$dataEscaped}')";
 
-mysql_query($query);
+$db_connection->query($query);
 
 die($guid);
 
