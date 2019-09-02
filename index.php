@@ -29,7 +29,7 @@ if ($db_connection->connect_error) {
 
                     $result = $db_connection->query("SELECT `data` FROM `smgen` WHERE `guid` = '{$guidEscaped}'");
 
-                    $row = $db_connection->fetch_assoc($result);
+                    $row = $result->fetch_assoc($result);
 
                     if(!empty($row)) {
                         $jsonData = $row['data'];
