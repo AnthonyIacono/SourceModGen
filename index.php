@@ -1,6 +1,14 @@
 <?php
-mysql_connect('localhost', 'root', '');
-mysql_select_db('smgen');
+
+$password = '';
+
+$db_connection = new mysqli('localhost', 'root', $password);
+$db_connection->select_db('smgen');
+
+if ($db_connection->connect_error) {
+    die("Connection failed: " . $db_connection->connect_error);
+}
+
 ?>
 <html>
     <head>
@@ -17,11 +25,11 @@ mysql_select_db('smgen');
                 if(!empty($_GET['id'])) {
                     $guid = $_GET['id'];
 
-                    $guidEscaped = mysql_real_escape_string($guid);
+                    $guidEscaped = $db_connection->real_escape_string($guid);
 
-                    $result = mysql_query("SELECT `data` FROM `smgen` WHERE `guid` = '{$guidEscaped}'");
+                    $result = $db_connection->query("SELECT `data` FROM `smgen` WHERE `guid` = '{$guidEscaped}'");
 
-                    $row = mysql_fetch_assoc($result);
+                    $row = $db_connection->fetch_assoc($result);
 
                     if(!empty($row)) {
                         $jsonData = $row['data'];
